@@ -188,46 +188,38 @@ export default function App() {
         </div>
       ) : (
         <main className="main">
-          <div className="progress-bar-wrap">
-            <div
-              className="progress-bar"
-              style={{ width: `${((idx + 1) / cards.length) * 100}%` }}
-            />
-          </div>
-          <div className="progress-text">
-            {idx + 1} / {cards.length}
-          </div>
-
           <div
             className={`card ${flipped ? 'flipped' : ''}`}
             onClick={handleFlip}
           >
             <div className="card-inner">
-              <div className="card-front">
-                <div className="badges">
-                  <span className={`badge type-badge ${currentCard.type === 'Vocabulary' ? 'vocab' : 'question'}`}>
-                    {currentCard.type}
-                  </span>
-                </div>
-                <p className="card-title">{currentCard.title}</p>
-                {!flipped && (
+              {!flipped ? (
+                <div className="card-front">
+                  <div className="badges">
+                    <span className={`badge type-badge ${currentCard.type === 'Vocabulary' ? 'vocab' : 'question'}`}>
+                      {currentCard.type}
+                    </span>
+                  </div>
+                  <p className="card-title">{currentCard.title}</p>
                   <button
                     className="btn-flip"
                     onClick={e => { e.stopPropagation(); handleFlip() }}
                   >
-                    Answer を見る
+                    回答を見る
                   </button>
-                )}
-              </div>
-              <div className="card-back">
-                <div className="badges">
-                  <span className="badge answer-badge">Answer</span>
-                  {currentCard.tags.map(tag => (
-                    <span key={tag} className="badge tag-badge">{tag}</span>
-                  ))}
                 </div>
-                <p className="card-answer">{currentCard.answer}</p>
-              </div>
+              ) : (
+                <div className="card-back">
+                  <div className="badges">
+                    <span className="badge answer-badge">Answer</span>
+                    {currentCard.tags.map(tag => (
+                      <span key={tag} className="badge tag-badge">{tag}</span>
+                    ))}
+                  </div>
+                  <p className="card-title" style={{fontSize:'1rem', marginBottom:'4px'}}>{currentCard.title}</p>
+                  <p className="card-answer">{currentCard.answer}</p>
+                </div>
+              )}
             </div>
           </div>
 
