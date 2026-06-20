@@ -14,37 +14,34 @@ body {
 .app {
   max-width: 600px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 20px 16px;
   min-height: 100vh;
 }
 
 /* Header */
 .header {
-  text-align: left;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .app-title {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #1e3a5f;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .filters {
   display: flex;
   gap: 8px;
-  justify-content: flex-start;
-  flex-wrap: wrap;
 }
 
 .filter-select {
   background: #fff;
   color: #1e3a5f;
-  border: 1px solid #b0bec5;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
+  padding: 3px 8px;
+  font-size: 0.78rem;
   cursor: pointer;
   outline: none;
 }
@@ -53,125 +50,89 @@ body {
   border-color: #1e3a5f;
 }
 
-/* Card */
-.card {
-  background: #fff;
-  border: 1px solid #cfd8dc;
-  border-radius: 14px;
-  padding: 24px;
+/* Question area */
+.question-area {
+  padding: 8px 0 20px;
   cursor: pointer;
-  min-height: 180px;
-  display: flex;
-  align-items: stretch;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  min-height: 120px;
 }
 
-.card:active {
-  transform: scale(0.99);
+.type-row {
+  margin-bottom: 10px;
 }
 
-.card.flipped {
-  border-color: #1e3a5f;
+.type-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #1e3a5f;
+  background: #e8eef7;
+  padding: 2px 10px;
+  border-radius: 9999px;
 }
 
-.card-inner {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.question-text {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.5;
 }
 
-.card-front, .card-back {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* Divider */
+.divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 0 0 20px;
 }
 
-/* Badges */
-.badges {
+/* Answer area */
+.answer-area {
+  min-height: 100px;
+  padding-bottom: 24px;
+}
+
+.answer-text {
+  font-size: 1rem;
+  color: #334155;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
+
+.answer-hint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.tag-row {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-}
-
-.badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  letter-spacing: 0.02em;
-}
-
-.type-badge.vocab {
-  background: #e8eef7;
-  color: #1e3a5f;
-}
-
-.type-badge.question {
-  background: #e8eef7;
-  color: #1e3a5f;
-}
-
-.answer-badge {
-  background: #1e3a5f;
-  color: #fff;
-}
-
-.tag-badge {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
-  line-height: 1.4;
-}
-
-.card-answer {
-  font-size: 0.95rem;
-  color: #334155;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.btn-flip {
-  align-self: flex-start;
-  background: #1e3a5f;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 18px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
   margin-top: 8px;
 }
 
-.btn-flip:hover {
-  background: #2d4f7f;
+.tag-badge {
+  font-size: 0.68rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 9999px;
 }
 
 /* Score */
 .score-section {
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .score-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #94a3b8;
-  text-align: center;
   margin-bottom: 8px;
 }
 
 .score-buttons {
   display: flex;
   gap: 6px;
-  justify-content: center;
 }
 
 .btn-score {
@@ -180,18 +141,21 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 8px 4px;
+  padding: 8px 2px;
   border-radius: 8px;
-  border: 1px solid #cfd8dc;
+  border: 1px solid #cbd5e1;
   cursor: pointer;
-  transition: all 0.15s;
   background: #fff;
-  color: #1e3a5f;
+  transition: all 0.15s;
 }
 
-.btn-score:hover {
+.btn-score:hover:not(:disabled) {
   background: #e8eef7;
   border-color: #1e3a5f;
+}
+
+.btn-score.scored {
+  opacity: 0.5;
 }
 
 .score-num {
@@ -205,33 +169,56 @@ body {
   color: #94a3b8;
 }
 
-/* Next button */
-.btn-next {
-  width: 100%;
-  padding: 12px;
-  background: #1e3a5f;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-  margin-bottom: 16px;
+/* Nav */
+.nav-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
 }
 
-.btn-next:hover {
+.btn-nav {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1e3a5f;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-nav:hover:not(:disabled) {
+  background: #e8eef7;
+  border-color: #1e3a5f;
+}
+
+.btn-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.btn-nav-next {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+
+.btn-nav-next:hover:not(:disabled) {
   background: #2d4f7f;
+  border-color: #2d4f7f;
 }
 
 /* Session Done */
 .session-done {
   text-align: center;
-  padding: 40px 20px;
+  padding: 48px 20px;
 }
 
 .done-title {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #1e3a5f;
   margin-bottom: 28px;
@@ -249,8 +236,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  background: #f8fafc;
-  border: 1px solid #cfd8dc;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px 20px;
   min-width: 80px;
@@ -269,15 +255,14 @@ body {
 }
 
 .btn-restart {
-  padding: 12px 36px;
+  padding: 10px 32px;
   background: #1e3a5f;
   color: #fff;
   border: none;
-  border-radius: 10px;
-  font-size: 0.95rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
 .btn-restart:hover {
@@ -293,6 +278,7 @@ body {
   gap: 16px;
   min-height: 300px;
   color: #94a3b8;
+  font-size: 0.875rem;
 }
 
 .spinner {
@@ -308,7 +294,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* Error */
+/* Error / Empty */
 .error-box {
   text-align: center;
   padding: 40px;
@@ -321,7 +307,6 @@ body {
   margin-top: 8px;
 }
 
-/* Empty */
 .empty {
   text-align: center;
   padding: 60px 20px;

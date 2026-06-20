@@ -18,7 +18,6 @@ export default function App() {
   const [cards, setCards] = useState([])
   const [idx, setIdx] = useState(0)
   const [flipped, setFlipped] = useState(false)
-  const [showScore, setShowScore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [typeFilter, setTypeFilter] = useState('All')
@@ -26,6 +25,7 @@ export default function App() {
   const [sessionDone, setSessionDone] = useState(false)
   const [summary, setSummary] = useState({ Focus: 0, Active: 0, Known: 0 })
   const [updating, setUpdating] = useState(false)
+  const [scored, setScored] = useState(false)
 
   useEffect(() => {
     fetch('/api/cards')
@@ -53,7 +53,7 @@ export default function App() {
     setCards(shuffled)
     setIdx(0)
     setFlipped(false)
-    setShowScore(false)
+    setScored(false)
     setSessionDone(false)
     setSummary({ Focus: 0, Active: 0, Known: 0 })
   }, [allCards, typeFilter, tagFilter])
@@ -65,13 +65,7 @@ export default function App() {
   const currentCard = cards[idx]
 
   const handleFlip = () => {
-    if (!flipped) {
-      setFlipped(true)
-      setShowScore(true)
-    } else {
-      setFlipped(false)
-      setShowScore(false)
-    }
+    setFlipped(f => !f)
   }
 
   const handleScore = async (score) => {
@@ -84,6 +78,7 @@ export default function App() {
     else newStatus = 'Known'
 
     setSummary(prev => ({ ...prev, [newStatus]: prev[newStatus] + 1 }))
+    setScored(true)
 
     try {
       await fetch(`/api/cards/${currentCard.id}`, {
@@ -96,16 +91,23 @@ export default function App() {
     }
 
     setUpdating(false)
-
-    if (idx + 1 >= cards.length) {
-      setSessionDone(true)
-    }
   }
 
   const handleNext = () => {
+    if (idx + 1 >= cards.length) {
+      setSessionDone(true)
+      return
+    }
     setIdx(i => i + 1)
     setFlipped(false)
-    setShowScore(false)
+    setScored(false)
+  }
+
+  const handlePrev = () => {
+    if (idx === 0) return
+    setIdx(i => i - 1)
+    setFlipped(false)
+    setScored(false)
   }
 
   const handleRestart = () => {
@@ -163,17 +165,17 @@ export default function App() {
 
       {sessionDone ? (
         <div className="session-done">
-          <h2 className="done-title">セッション完了 🎉</h2>
+          <h2 className="done-title">セッション完了</h2>
           <div className="summary">
-            <div className="summary-item focus">
+            <div className="summary-item">
               <span className="summary-label">Focus</span>
               <span className="summary-count">{summary.Focus}</span>
             </div>
-            <div className="summary-item active">
+            <div className="summary-item">
               <span className="summary-label">Active</span>
               <span className="summary-count">{summary.Active}</span>
             </div>
-            <div className="summary-item known">
+            <div className="summary-item">
               <span className="summary-label">Known</span>
               <span className="summary-count">{summary.Known}</span>
             </div>
@@ -188,50 +190,46 @@ export default function App() {
         </div>
       ) : (
         <main className="main">
-          <div
-            className={`card ${flipped ? 'flipped' : ''}`}
-            onClick={handleFlip}
-          >
-            <div className="card-inner">
-              {!flipped ? (
-                <div className="card-front">
-                  <div className="badges">
-                    <span className={`badge type-badge ${currentCard.type === 'Vocabulary' ? 'vocab' : 'question'}`}>
-                      {currentCard.type}
-                    </span>
-                  </div>
-                  <p className="card-title">{currentCard.title}</p>
-                  <button
-                    className="btn-flip"
-                    onClick={e => { e.stopPropagation(); handleFlip() }}
-                  >
-                    回答を見る
-                  </button>
-                </div>
-              ) : (
-                <div className="card-back">
-                  <div className="badges">
-                    <span className="badge answer-badge">Answer</span>
-                    {currentCard.tags.map(tag => (
-                      <span key={tag} className="badge tag-badge">{tag}</span>
-                    ))}
-                  </div>
-                  <p className="card-title" style={{fontSize:'1rem', marginBottom:'4px'}}>{currentCard.title}</p>
-                  <p className="card-answer">{currentCard.answer}</p>
-                </div>
-              )}
+          {/* 問題エリア */}
+          <div className="question-area" onClick={handleFlip}>
+            <div className="type-row">
+              <span className="type-label">{currentCard.type}</span>
             </div>
+            <p className="question-text">{currentCard.title}</p>
           </div>
 
-          {showScore && !updating && idx < cards.length && (
+          {/* 区切り線 */}
+          <div className="divider" />
+
+          {/* 回答エリア（固定高さでレイアウトを安定させる） */}
+          <div className="answer-area">
+            {flipped ? (
+              <>
+                <p className="answer-text">{currentCard.answer}</p>
+                {currentCard.tags.length > 0 && (
+                  <div className="tag-row">
+                    {currentCard.tags.map(tag => (
+                      <span key={tag} className="tag-badge">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="answer-hint" onClick={handleFlip}>タップして回答を表示</p>
+            )}
+          </div>
+
+          {/* 理解度 */}
+          {flipped && (
             <div className="score-section">
-              <p className="score-label">理解度を評価</p>
+              <p className="score-label">理解度</p>
               <div className="score-buttons">
                 {[1, 2, 3, 4, 5].map(s => (
                   <button
                     key={s}
-                    className={`btn-score score-${s}`}
+                    className={`btn-score${scored ? ' scored' : ''}`}
                     onClick={() => handleScore(s)}
+                    disabled={updating}
                   >
                     <span className="score-num">{s}</span>
                     <span className="score-text">{SCORE_LABELS[s]}</span>
@@ -241,17 +239,22 @@ export default function App() {
             </div>
           )}
 
-          {updating && (
-            <div className="score-section">
-              <p className="score-label">更新中…</p>
-            </div>
-          )}
-
-          {showScore && summary.Focus + summary.Active + summary.Known > 0 && !updating && (
-            <button className="btn-next" onClick={handleNext}>
-              次のカード →
+          {/* 前・次ナビ */}
+          <div className="nav-row">
+            <button
+              className="btn-nav"
+              onClick={handlePrev}
+              disabled={idx === 0}
+            >
+              前
             </button>
-          )}
+            <button
+              className="btn-nav btn-nav-next"
+              onClick={handleNext}
+            >
+              次
+            </button>
+          </div>
         </main>
       )}
     </div>
