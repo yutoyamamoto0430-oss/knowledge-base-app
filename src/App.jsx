@@ -72,6 +72,7 @@ export default function App() {
   const [editTitle, setEditTitle] = useState('')
   const [editAnswer, setEditAnswer] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     fetch('/api/cards')
@@ -171,13 +172,19 @@ export default function App() {
   const handleEditSave = async () => {
     if (!currentCard || saving) return
     setSaving(true)
+    setSaveError('')
     try {
-      await fetch(`/api/cards/${currentCard.id}`, {
+      const res = await fetch(`/api/cards/${currentCard.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editTitle, answer: editAnswer })
       })
-      // ローカルのcardsも更新
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setSaveError(data.error || `エラー: ${res.status}`)
+        setSaving(false)
+        return
+      }
       setCards(prev => prev.map((c, i) =>
         i === idx ? { ...c, title: editTitle, answer: editAnswer } : c
       ))
@@ -186,7 +193,7 @@ export default function App() {
       ))
       setEditing(false)
     } catch (e) {
-      console.error('Save failed:', e)
+      setSaveError(e.message)
     }
     setSaving(false)
   }
@@ -297,6 +304,7 @@ export default function App() {
                   rows={6}
                 />
               </div>
+              {saveError && <p className="edit-error">{saveError}</p>}
               <div className="edit-actions">
                 <button className="btn-edit-cancel" onClick={handleEditCancel}>キャンセル</button>
                 <button className="btn-edit-save" onClick={handleEditSave} disabled={saving}>

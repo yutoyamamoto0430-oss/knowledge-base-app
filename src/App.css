@@ -167,6 +167,15 @@ body {
   cursor: default;
 }
 
+.edit-error {
+  font-size: 0.8rem;
+  color: #ef4444;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 6px;
+}
+
 .question-text {
   font-size: 1.3rem;
   font-weight: 600;
