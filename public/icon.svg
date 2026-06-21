@@ -1,4 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="80" fill="#0a0f1e"/>
-  <text x="256" y="340" font-family="system-ui,sans-serif" font-size="240" font-weight="700" fill="#60a5fa" text-anchor="middle">KB</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Notion-style off-white background with rounded corners -->
+  <rect width="512" height="512" rx="88" fill="#FFFFFE"/>
+  <!-- Subtle border -->
+  <rect width="512" height="512" rx="88" fill="none" stroke="#E8E7E3" stroke-width="6"/>
+
+  <!-- Page-fold triangle in top-right corner (Notion signature) -->
+  <polygon points="368,16 496,16 496,144" fill="#E0DED8"/>
+  <polygon points="368,16 496,144 368,144" fill="#CBC9C3"/>
+
+  <!-- NB text: bold, slightly condensed, serif-feel via font -->
+  <text
+    x="50%"
+    y="56%"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="230"
+    font-weight="bold"
+    fill="#1A1918"
+    letter-spacing="-8"
+  >NB</text>
 </svg>
