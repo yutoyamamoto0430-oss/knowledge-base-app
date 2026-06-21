@@ -9,9 +9,9 @@ export default async function handler(req, res) {
   }
 
   const { id } = req.query
-  const { score, title, answer } = req.body
 
   try {
+    const { score, title, answer } = req.body || {}
     // 編集モード: title or answer が含まれる場合
     if (title !== undefined || answer !== undefined) {
       const properties = {}
