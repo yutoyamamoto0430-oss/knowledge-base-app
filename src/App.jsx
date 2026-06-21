@@ -63,7 +63,7 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState('All')
   const [tagFilter, setTagFilter] = useState('All Tags')
   const [dateFilter, setDateFilter] = useState('today')
-  const [sortOrder, setSortOrder] = useState('random')
+  const [sortOrder, setSortOrder] = useState('updated')
   const [sessionDone, setSessionDone] = useState(false)
   const [summary, setSummary] = useState({ Focus: 0, Active: 0, Known: 0 })
   const [updating, setUpdating] = useState(false)
@@ -192,6 +192,7 @@ export default function App() {
         c.id === currentCard.id ? { ...c, title: editTitle, answer: editAnswer } : c
       ))
       setEditing(false)
+      setFlipped(false)
     } catch (e) {
       setSaveError(e.message)
     }
@@ -244,9 +245,9 @@ export default function App() {
             {TAGS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select className="filter-select" value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
-            <option value="random">ランダム</option>
             <option value="updated">更新日順</option>
             <option value="created">作成日順</option>
+            <option value="random">ランダム</option>
           </select>
           <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
             <option value="All">All Types</option>
