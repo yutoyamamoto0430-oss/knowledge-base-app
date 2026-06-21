@@ -68,6 +68,10 @@ export default function App() {
   const [summary, setSummary] = useState({ Focus: 0, Active: 0, Known: 0 })
   const [updating, setUpdating] = useState(false)
   const [scored, setScored] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editAnswer, setEditAnswer] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     fetch('/api/cards')
@@ -146,6 +150,7 @@ export default function App() {
     setIdx(i => i + 1)
     setFlipped(false)
     setScored(false)
+    setEditing(false)
   }
 
   const handlePrev = () => {
@@ -153,7 +158,40 @@ export default function App() {
     setIdx(i => i - 1)
     setFlipped(false)
     setScored(false)
+    setEditing(false)
   }
+
+  const handleEditStart = () => {
+    setEditTitle(currentCard.title)
+    setEditAnswer(currentCard.answer)
+    setEditing(true)
+    setFlipped(false)
+  }
+
+  const handleEditSave = async () => {
+    if (!currentCard || saving) return
+    setSaving(true)
+    try {
+      await fetch(`/api/cards/${currentCard.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editTitle, answer: editAnswer })
+      })
+      // ローカルのcardsも更新
+      setCards(prev => prev.map((c, i) =>
+        i === idx ? { ...c, title: editTitle, answer: editAnswer } : c
+      ))
+      setAllCards(prev => prev.map(c =>
+        c.id === currentCard.id ? { ...c, title: editTitle, answer: editAnswer } : c
+      ))
+      setEditing(false)
+    } catch (e) {
+      console.error('Save failed:', e)
+    }
+    setSaving(false)
+  }
+
+  const handleEditCancel = () => setEditing(false)
 
   if (loading) {
     return (
@@ -238,55 +276,88 @@ export default function App() {
         </div>
       ) : (
         <main className="main">
-          <div className="question-area" onClick={handleFlip}>
-            <div className="type-row">
-              <span className="type-label">{currentCard.type}</span>
-            </div>
-            <p className="question-text">{currentCard.title}</p>
-          </div>
-
-          <div className="divider" />
-
-          <div className="answer-area">
-            {flipped ? (
-              <>
-                <p className="answer-text">{currentCard.answer}</p>
-                {currentCard.tags.length > 0 && (
-                  <div className="tag-row">
-                    {currentCard.tags.map(tag => (
-                      <span key={tag} className="tag-badge">{tag}</span>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="answer-hint" onClick={handleFlip}>タップして回答を表示</p>
-            )}
-          </div>
-
-          {flipped && (
-            <div className="score-section">
-              <p className="score-label">理解度</p>
-              <div className="score-buttons">
-                {[1, 2, 3, 4, 5].map(s => (
-                  <button
-                    key={s}
-                    className={`btn-score${scored ? ' scored' : ''}`}
-                    onClick={() => handleScore(s)}
-                    disabled={updating}
-                  >
-                    <span className="score-num">{s}</span>
-                    <span className="score-text">{SCORE_LABELS[s]}</span>
-                  </button>
-                ))}
+          {editing ? (
+            <div className="edit-area">
+              <div className="edit-field">
+                <label className="edit-label">問題</label>
+                <textarea
+                  className="edit-input"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  rows={3}
+                  autoFocus
+                />
+              </div>
+              <div className="edit-field">
+                <label className="edit-label">回答</label>
+                <textarea
+                  className="edit-input"
+                  value={editAnswer}
+                  onChange={e => setEditAnswer(e.target.value)}
+                  rows={6}
+                />
+              </div>
+              <div className="edit-actions">
+                <button className="btn-edit-cancel" onClick={handleEditCancel}>キャンセル</button>
+                <button className="btn-edit-save" onClick={handleEditSave} disabled={saving}>
+                  {saving ? '保存中…' : '保存'}
+                </button>
               </div>
             </div>
-          )}
+          ) : (
+            <>
+              <div className="question-area" onClick={handleFlip}>
+                <div className="type-row">
+                  <span className="type-label">{currentCard.type}</span>
+                  <button className="btn-edit" onClick={e => { e.stopPropagation(); handleEditStart() }}>編集</button>
+                </div>
+                <p className="question-text">{currentCard.title}</p>
+              </div>
 
-          <div className="nav-row">
-            <button className="btn-nav" onClick={handlePrev} disabled={idx === 0}>前</button>
-            <button className="btn-nav btn-nav-next" onClick={handleNext}>次</button>
-          </div>
+              <div className="divider" />
+
+              <div className="answer-area">
+                {flipped ? (
+                  <>
+                    <p className="answer-text">{currentCard.answer}</p>
+                    {currentCard.tags.length > 0 && (
+                      <div className="tag-row">
+                        {currentCard.tags.map(tag => (
+                          <span key={tag} className="tag-badge">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="answer-hint" onClick={handleFlip}>タップして回答を表示</p>
+                )}
+              </div>
+
+              {flipped && (
+                <div className="score-section">
+                  <p className="score-label">理解度</p>
+                  <div className="score-buttons">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <button
+                        key={s}
+                        className={`btn-score${scored ? ' scored' : ''}`}
+                        onClick={() => handleScore(s)}
+                        disabled={updating}
+                      >
+                        <span className="score-num">{s}</span>
+                        <span className="score-text">{SCORE_LABELS[s]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="nav-row">
+                <button className="btn-nav" onClick={handlePrev} disabled={idx === 0}>前</button>
+                <button className="btn-nav btn-nav-next" onClick={handleNext}>次</button>
+              </div>
+            </>
+          )}
         </main>
       )}
     </div>
