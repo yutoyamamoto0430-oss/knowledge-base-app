@@ -73,6 +73,8 @@ export default function App() {
   const [editAnswer, setEditAnswer] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [images, setImages] = useState(null) // null=未取得, []=なし, [...]=あり
+  const [showImages, setShowImages] = useState(false)
 
   useEffect(() => {
     fetch('/api/cards')
@@ -116,6 +118,17 @@ export default function App() {
 
   const currentCard = cards[idx]
 
+  // カードが変わるたびに画像を取得
+  useEffect(() => {
+    if (!currentCard) return
+    setImages(null)
+    setShowImages(false)
+    fetch(`/api/blocks/${currentCard.id}`)
+      .then(r => r.json())
+      .then(data => setImages(data.images || []))
+      .catch(() => setImages([]))
+  }, [currentCard?.id])
+
   const handleFlip = () => setFlipped(f => !f)
 
   const handleScore = async (score) => {
@@ -152,6 +165,7 @@ export default function App() {
     setFlipped(false)
     setScored(false)
     setEditing(false)
+    setShowImages(false)
   }
 
   const handlePrev = () => {
@@ -160,6 +174,7 @@ export default function App() {
     setFlipped(false)
     setScored(false)
     setEditing(false)
+    setShowImages(false)
   }
 
   const handleEditStart = () => {
@@ -318,10 +333,37 @@ export default function App() {
               <div className="question-area" onClick={handleFlip}>
                 <div className="type-row">
                   <span className="type-label">{currentCard.type}</span>
-                  <button className="btn-edit" onClick={e => { e.stopPropagation(); handleEditStart() }}>編集</button>
+                  <div className="type-row-actions">
+                    <button
+                      className={`btn-image${images === null ? ' img-loading' : images.length === 0 ? ' img-none' : ''}`}
+                      onClick={e => { e.stopPropagation(); if (images && images.length > 0) setShowImages(true) }}
+                      disabled={images === null || images.length === 0}
+                      title={images === null ? '読み込み中' : images.length === 0 ? '画像なし' : `画像 ${images.length}枚`}
+                    >
+                      Image{images !== null && images.length > 0 ? ` (${images.length})` : ''}
+                    </button>
+                    <button className="btn-edit" onClick={e => { e.stopPropagation(); handleEditStart() }}>編集</button>
+                  </div>
                 </div>
                 <p className="question-text">{currentCard.title}</p>
               </div>
+
+              {/* 画像モーダル */}
+              {showImages && images && images.length > 0 && (
+                <div className="image-modal-overlay" onClick={() => setShowImages(false)}>
+                  <div className="image-modal" onClick={e => e.stopPropagation()}>
+                    <button className="image-modal-close" onClick={() => setShowImages(false)}>✕</button>
+                    <div className="image-list">
+                      {images.map((img, i) => (
+                        <div key={i} className="image-item">
+                          <img src={img.url} alt={img.caption || `画像${i + 1}`} />
+                          {img.caption && <p className="image-caption">{img.caption}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="divider" />
 
