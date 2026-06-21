@@ -65,7 +65,9 @@ export default async function handler(req, res) {
         answer,
         type: types[0] || 'Vocabulary',
         tags,
-        status
+        status,
+        created_time: page.created_time,
+        last_edited_time: page.last_edited_time
       }
     })
 

@@ -13,6 +13,46 @@ function shuffle(arr) {
   return a
 }
 
+// JSTの今日00:00をUTCのDateで返す
+function jstMidnight(daysAgo = 0) {
+  const now = new Date()
+  // JST = UTC+9
+  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  const jstMid = new Date(Date.UTC(
+    jstNow.getUTCFullYear(),
+    jstNow.getUTCMonth(),
+    jstNow.getUTCDate() - daysAgo,
+    0, 0, 0, 0
+  ))
+  // UTC+9 → UTCに戻す
+  return new Date(jstMid.getTime() - 9 * 60 * 60 * 1000)
+}
+
+function applyDateFilter(cards, dateFilter) {
+  if (dateFilter === 'all') return cards
+  let since
+  if (dateFilter === 'today') since = jstMidnight(0)
+  else if (dateFilter === 'yesterday') since = jstMidnight(1)
+  else if (dateFilter === 'week') since = jstMidnight(7)
+  else if (dateFilter === 'month') since = jstMidnight(30)
+  return cards.filter(c => {
+    const created = new Date(c.created_time)
+    const edited = new Date(c.last_edited_time)
+    return created >= since || edited >= since
+  })
+}
+
+function applySort(cards, sortOrder) {
+  if (sortOrder === 'random') return shuffle(cards)
+  const sorted = [...cards]
+  if (sortOrder === 'updated') {
+    sorted.sort((a, b) => new Date(b.last_edited_time) - new Date(a.last_edited_time))
+  } else if (sortOrder === 'created') {
+    sorted.sort((a, b) => new Date(b.created_time) - new Date(a.created_time))
+  }
+  return sorted
+}
+
 export default function App() {
   const [allCards, setAllCards] = useState([])
   const [cards, setCards] = useState([])
@@ -22,6 +62,8 @@ export default function App() {
   const [error, setError] = useState(null)
   const [typeFilter, setTypeFilter] = useState('All')
   const [tagFilter, setTagFilter] = useState('All Tags')
+  const [dateFilter, setDateFilter] = useState('all')
+  const [sortOrder, setSortOrder] = useState('random')
   const [sessionDone, setSessionDone] = useState(false)
   const [summary, setSummary] = useState({ Focus: 0, Active: 0, Known: 0 })
   const [updating, setUpdating] = useState(false)
@@ -41,7 +83,7 @@ export default function App() {
       })
   }, [])
 
-  const applyFilters = useCallback(() => {
+  const buildCards = useCallback(() => {
     let filtered = allCards
     if (typeFilter !== 'All') {
       filtered = filtered.filter(c => c.type === typeFilter)
@@ -49,24 +91,27 @@ export default function App() {
     if (tagFilter !== 'All Tags') {
       filtered = filtered.filter(c => c.tags.includes(tagFilter))
     }
-    const shuffled = shuffle(filtered)
-    setCards(shuffled)
+    filtered = applyDateFilter(filtered, dateFilter)
+    return applySort(filtered, sortOrder)
+  }, [allCards, typeFilter, tagFilter, dateFilter, sortOrder])
+
+  const applyFilters = useCallback(() => {
+    const result = buildCards()
+    setCards(result)
     setIdx(0)
     setFlipped(false)
     setScored(false)
     setSessionDone(false)
     setSummary({ Focus: 0, Active: 0, Known: 0 })
-  }, [allCards, typeFilter, tagFilter])
+  }, [buildCards])
 
   useEffect(() => {
     if (allCards.length > 0) applyFilters()
-  }, [allCards, typeFilter, tagFilter])
+  }, [allCards, typeFilter, tagFilter, dateFilter, sortOrder])
 
   const currentCard = cards[idx]
 
-  const handleFlip = () => {
-    setFlipped(f => !f)
-  }
+  const handleFlip = () => setFlipped(f => !f)
 
   const handleScore = async (score) => {
     if (!currentCard || updating) return
@@ -110,10 +155,6 @@ export default function App() {
     setScored(false)
   }
 
-  const handleRestart = () => {
-    applyFilters()
-  }
-
   if (loading) {
     return (
       <div className="app">
@@ -139,26 +180,33 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1 className="app-title">Knowledge Base</h1>
+        <div className="header-top">
+          <h1 className="app-title">Knowledge Base</h1>
+          {cards.length > 0 && !sessionDone && (
+            <span className="progress-count">{idx + 1} / {cards.length}</span>
+          )}
+        </div>
         <div className="filters">
-          <select
-            className="filter-select"
-            value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}
-          >
+          <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
             <option value="All">All Types</option>
             <option value="Vocabulary">Vocabulary</option>
             <option value="Question">Question</option>
           </select>
-          <select
-            className="filter-select"
-            value={tagFilter}
-            onChange={e => setTagFilter(e.target.value)}
-          >
+          <select className="filter-select" value={tagFilter} onChange={e => setTagFilter(e.target.value)}>
             <option value="All Tags">All Tags</option>
-            {TAGS.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
+            {TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="filter-select" value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
+            <option value="all">全て</option>
+            <option value="today">今日</option>
+            <option value="yesterday">昨日</option>
+            <option value="week">1週間</option>
+            <option value="month">1か月</option>
+          </select>
+          <select className="filter-select" value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+            <option value="random">ランダム</option>
+            <option value="updated">更新日順</option>
+            <option value="created">作成日順</option>
           </select>
         </div>
       </header>
@@ -180,7 +228,7 @@ export default function App() {
               <span className="summary-count">{summary.Known}</span>
             </div>
           </div>
-          <button className="btn-restart" onClick={handleRestart}>
+          <button className="btn-restart" onClick={applyFilters}>
             もう一度やる
           </button>
         </div>
@@ -190,7 +238,6 @@ export default function App() {
         </div>
       ) : (
         <main className="main">
-          {/* 問題エリア */}
           <div className="question-area" onClick={handleFlip}>
             <div className="type-row">
               <span className="type-label">{currentCard.type}</span>
@@ -198,10 +245,8 @@ export default function App() {
             <p className="question-text">{currentCard.title}</p>
           </div>
 
-          {/* 区切り線 */}
           <div className="divider" />
 
-          {/* 回答エリア（固定高さでレイアウトを安定させる） */}
           <div className="answer-area">
             {flipped ? (
               <>
@@ -219,7 +264,6 @@ export default function App() {
             )}
           </div>
 
-          {/* 理解度 */}
           {flipped && (
             <div className="score-section">
               <p className="score-label">理解度</p>
@@ -239,21 +283,9 @@ export default function App() {
             </div>
           )}
 
-          {/* 前・次ナビ */}
           <div className="nav-row">
-            <button
-              className="btn-nav"
-              onClick={handlePrev}
-              disabled={idx === 0}
-            >
-              前
-            </button>
-            <button
-              className="btn-nav btn-nav-next"
-              onClick={handleNext}
-            >
-              次
-            </button>
+            <button className="btn-nav" onClick={handlePrev} disabled={idx === 0}>前</button>
+            <button className="btn-nav btn-nav-next" onClick={handleNext}>次</button>
           </div>
         </main>
       )}

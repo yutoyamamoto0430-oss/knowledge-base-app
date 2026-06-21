@@ -23,11 +23,23 @@ body {
   margin-bottom: 24px;
 }
 
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .app-title {
   font-size: 1.1rem;
   font-weight: 700;
   color: #1e3a5f;
-  margin-bottom: 8px;
+}
+
+.progress-count {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
 }
 
 .filters {
