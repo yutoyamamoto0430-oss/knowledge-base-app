@@ -62,7 +62,7 @@ export default function App() {
   const [error, setError] = useState(null)
   const [typeFilter, setTypeFilter] = useState('All')
   const [tagFilter, setTagFilter] = useState('All Tags')
-  const [dateFilter, setDateFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState('today')
   const [sortOrder, setSortOrder] = useState('random')
   const [sessionDone, setSessionDone] = useState(false)
   const [summary, setSummary] = useState({ Focus: 0, Active: 0, Known: 0 })
@@ -187,26 +187,26 @@ export default function App() {
           )}
         </div>
         <div className="filters">
-          <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-            <option value="All">All Types</option>
-            <option value="Vocabulary">Vocabulary</option>
-            <option value="Question">Question</option>
+          <select className="filter-select" value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
+            <option value="today">今日</option>
+            <option value="yesterday">昨日</option>
+            <option value="week">今週</option>
+            <option value="month">今月</option>
+            <option value="all">全期間</option>
           </select>
           <select className="filter-select" value={tagFilter} onChange={e => setTagFilter(e.target.value)}>
             <option value="All Tags">All Tags</option>
             {TAGS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select className="filter-select" value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
-            <option value="all">全て</option>
-            <option value="today">今日</option>
-            <option value="yesterday">昨日</option>
-            <option value="week">1週間</option>
-            <option value="month">1か月</option>
-          </select>
           <select className="filter-select" value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
             <option value="random">ランダム</option>
             <option value="updated">更新日順</option>
             <option value="created">作成日順</option>
+          </select>
+          <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+            <option value="All">All Types</option>
+            <option value="Vocabulary">Vocabulary</option>
+            <option value="Question">Question</option>
           </select>
         </div>
       </header>
