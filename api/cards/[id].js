@@ -1,3 +1,5 @@
+export const config = { api: { bodyParser: true } }
+
 export default async function handler(req, res) {
   if (req.method !== 'PATCH') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -10,9 +12,30 @@ export default async function handler(req, res) {
 
   const { id } = req.query
 
+  // ボディを確実に取得
+  let body = {}
   try {
-    const { score, title, answer } = req.body || {}
-    // 編集モード: title or answer が含まれる場合
+    if (typeof req.body === 'string') {
+      body = JSON.parse(req.body)
+    } else if (req.body && typeof req.body === 'object') {
+      body = req.body
+    } else {
+      // ストリームから手動読み込み
+      const raw = await new Promise((resolve, reject) => {
+        let data = ''
+        req.on('data', chunk => { data += chunk })
+        req.on('end', () => resolve(data))
+        req.on('error', reject)
+      })
+      body = raw ? JSON.parse(raw) : {}
+    }
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON body: ' + e.message })
+  }
+
+  const { score, title, answer } = body
+
+  try {
     if (title !== undefined || answer !== undefined) {
       const properties = {}
       if (title !== undefined) {
