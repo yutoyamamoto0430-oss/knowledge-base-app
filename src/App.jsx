@@ -4,6 +4,32 @@ import './App.css'
 const TAGS = ['風力', '法務', '洋上風力', '財務', 'エネルギー', '再エネ', '制度', '時事', 'IT', 'Tech']
 const SESSION_KEY = 'kb_session_v2'
 
+const IconCheck = () => (
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{display:'inline',verticalAlign:'-1px'}}>
+    <circle cx="6.5" cy="6.5" r="5.7" stroke="currentColor" strokeWidth="1.3"/>
+    <path d="M4 6.5l2 2 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+const IconAlert = () => (
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{display:'inline',verticalAlign:'-1px'}}>
+    <circle cx="6.5" cy="6.5" r="5.7" stroke="currentColor" strokeWidth="1.3"/>
+    <line x1="6.5" y1="3.8" x2="6.5" y2="7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    <circle cx="6.5" cy="9.3" r="0.75" fill="currentColor"/>
+  </svg>
+)
+const IconPencil = () => (
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{display:'inline',verticalAlign:'-1px'}}>
+    <path d="M2 10.5l.9-2.9 6.2-6.2a1.1 1.1 0 0 1 1.55 1.55L4.9 9.6z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+    <path d="M8.3 2.2l1.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+  </svg>
+)
+
+const LABELS = [
+  { id: 'Learnt', icon: <IconCheck /> },
+  { id: 'Focus',  icon: <IconAlert /> },
+  { id: 'Correct', icon: <IconPencil /> },
+]
+
 function shuffle(arr) {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -31,9 +57,9 @@ function filterCards(cards, { typeFilter, tagFilters, dateFilter, labelFilter })
     const since = jstMidnight(daysAgo)
     f = f.filter(c => new Date(c.created_time) >= since || new Date(c.last_edited_time) >= since)
   }
-  if (labelFilter === '重要') f = f.filter(c => c.status === 'Focus')
-  else if (labelFilter === '修正') f = f.filter(c => c.yushsei === true)
-  else if (labelFilter === '済') f = f.filter(c => c.status === 'Known')
+  if (labelFilter === 'Focus') f = f.filter(c => c.status === 'Focus')
+  else if (labelFilter === 'Correct') f = f.filter(c => c.yushsei === true)
+  else if (labelFilter === 'Learnt') f = f.filter(c => c.status === 'Known')
   else f = f.filter(c => c.status !== 'Known')
   return f
 }
@@ -79,12 +105,10 @@ function TagDropdown({ selected, onChange }) {
   )
 }
 
-// Floating search button that appears on text selection
 function SelectionSearch({ onSearch }) {
   const [pos, setPos] = useState(null)
-
   useEffect(() => {
-    const onSelectionChange = () => {
+    const onSel = () => {
       const sel = window.getSelection()
       const text = sel?.toString().trim()
       if (!text || text.length < 2) { setPos(null); return }
@@ -92,12 +116,10 @@ function SelectionSearch({ onSearch }) {
       const rect = range.getBoundingClientRect()
       setPos({ x: rect.left + rect.width / 2, y: rect.top - 8, text })
     }
-    document.addEventListener('selectionchange', onSelectionChange)
-    return () => document.removeEventListener('selectionchange', onSelectionChange)
+    document.addEventListener('selectionchange', onSel)
+    return () => document.removeEventListener('selectionchange', onSel)
   }, [])
-
   if (!pos) return null
-
   return (
     <button
       className="selection-search-btn"
@@ -125,8 +147,7 @@ export default function App() {
   const [labelFilter, setLabelFilter] = useState('all')
 
   const [sessionDone, setSessionDone] = useState(false)
-  const [summary, setSummary] = useState({ Done: 0, Key: 0, Fix: 0 })
-
+  const [summary, setSummary] = useState({ Learnt: 0, Focus: 0, Correct: 0 })
   const [selectedLabels, setSelectedLabels] = useState(new Set())
   const [updating, setUpdating] = useState(false)
 
@@ -139,8 +160,11 @@ export default function App() {
   const [images, setImages] = useState(null)
   const [showImages, setShowImages] = useState(false)
 
-  // Word search modal
-  const [searchResults, setSearchResults] = useState(null) // null=closed, []=not found, [...]=results
+  // Search state
+  const [searchQuery, setSearchQuery] = useState(null)   // word being searched
+  const [searchResults, setSearchResults] = useState(null) // results array or null
+  // Jump history: [{cards, idx}]
+  const [jumpHistory, setJumpHistory] = useState([])
 
   const allCardsRef = useRef([])
   const filtersRef = useRef({ typeFilter, tagFilters, dateFilter, sortOrder, labelFilter })
@@ -171,7 +195,6 @@ export default function App() {
       }
     } catch {}
     setCards(sortCards(filterCards(allCards, filters), filters.sortOrder))
-    setIdx(0)
   }, [allCards])
 
   useEffect(() => {
@@ -181,7 +204,8 @@ export default function App() {
     localStorage.removeItem(SESSION_KEY)
     setCards(sortCards(filterCards(allCardsRef.current, filters), sortOrder))
     setIdx(0); setFlipped(false); setSessionDone(false)
-    setSummary({ Done: 0, Key: 0, Fix: 0 }); setEditing(false); setShowImages(false)
+    setSummary({ Learnt: 0, Focus: 0, Correct: 0 }); setEditing(false); setShowImages(false)
+    setJumpHistory([])
   }, [typeFilter, tagFilters, dateFilter, sortOrder, labelFilter])
 
   const saveSession = useCallback((c, i) => {
@@ -195,9 +219,9 @@ export default function App() {
   useEffect(() => {
     if (!currentCard) return
     const labels = new Set()
-    if (currentCard.status === 'Known') labels.add('Done')
-    if (currentCard.status === 'Focus') labels.add('Key')
-    if (currentCard.yushsei) labels.add('Fix')
+    if (currentCard.status === 'Known') labels.add('Learnt')
+    if (currentCard.status === 'Focus') labels.add('Focus')
+    if (currentCard.yushsei) labels.add('Correct')
     setSelectedLabels(labels)
     setImages(null); setShowImages(false)
     fetch(`/api/blocks/${currentCard.id}`)
@@ -211,30 +235,25 @@ export default function App() {
   const handleLabelToggle = async label => {
     if (!currentCard || updating) return
     const n = new Set(selectedLabels)
-    if (label === 'Done') {
-      if (n.has('Done')) n.delete('Done')
-      else { n.delete('Key'); n.add('Done') }
-    } else if (label === 'Key') {
-      if (n.has('Key')) n.delete('Key')
-      else { n.delete('Done'); n.add('Key') }
+    if (label === 'Learnt') {
+      if (n.has('Learnt')) n.delete('Learnt'); else { n.delete('Focus'); n.add('Learnt') }
+    } else if (label === 'Focus') {
+      if (n.has('Focus')) n.delete('Focus'); else { n.delete('Learnt'); n.add('Focus') }
     } else {
-      if (n.has('Fix')) n.delete('Fix'); else n.add('Fix')
+      if (n.has('Correct')) n.delete('Correct'); else n.add('Correct')
     }
     setSelectedLabels(n)
-
-    if (label === 'Done' && n.has('Done')) setSummary(s => ({ ...s, Done: s.Done + 1 }))
-    if (label === 'Key' && n.has('Key')) setSummary(s => ({ ...s, Key: s.Key + 1 }))
-    if (label === 'Fix' && n.has('Fix')) setSummary(s => ({ ...s, Fix: s.Fix + 1 }))
-
-    const status = n.has('Done') ? 'Known' : n.has('Key') ? 'Focus' : 'Active'
-    const yushsei = n.has('Fix')
+    if (label === 'Learnt' && n.has('Learnt')) setSummary(s => ({ ...s, Learnt: s.Learnt + 1 }))
+    if (label === 'Focus'  && n.has('Focus'))  setSummary(s => ({ ...s, Focus: s.Focus + 1 }))
+    if (label === 'Correct'&& n.has('Correct'))setSummary(s => ({ ...s, Correct: s.Correct + 1 }))
+    const status = n.has('Learnt') ? 'Known' : n.has('Focus') ? 'Focus' : 'Active'
+    const yushsei = n.has('Correct')
     setCards(prev => prev.map((c, i) => i === idx ? { ...c, status, yushsei } : c))
     setAllCards(prev => prev.map(c => c.id === currentCard.id ? { ...c, status, yushsei } : c))
     setUpdating(true)
     try {
       await fetch(`/api/cards/${currentCard.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, yushsei })
       })
     } catch (e) { console.error(e) }
@@ -283,32 +302,44 @@ export default function App() {
     const filters = filtersRef.current
     setCards(sortCards(filterCards(allCardsRef.current, filters), filters.sortOrder))
     setIdx(0); setFlipped(false); setSessionDone(false)
-    setSummary({ Done: 0, Key: 0, Fix: 0 }); setEditing(false); setShowImages(false)
+    setSummary({ Learnt: 0, Focus: 0, Correct: 0 }); setEditing(false); setShowImages(false)
+    setJumpHistory([])
   }
 
-  // Word search from text selection
+  // Word search
   const handleWordSearch = useCallback(word => {
     const q = word.toLowerCase()
     const results = allCardsRef.current.filter(c =>
-      c.title.toLowerCase().includes(q) ||
-      c.answer.toLowerCase().includes(q)
+      c.title.toLowerCase().includes(q) || c.answer.toLowerCase().includes(q)
     )
-    setSearchResults({ word, results })
+    setSearchQuery(word)
+    setSearchResults(results)
     window.getSelection()?.removeAllRanges()
   }, [])
 
   const handleSearchJump = card => {
-    // Find in current deck or add temporarily
+    // Save current position to jump history
+    setJumpHistory(h => [...h, { cards, idx }])
+    // Find card in current deck
     const i = cards.findIndex(c => c.id === card.id)
     if (i !== -1) {
-      setIdx(i); setFlipped(false); setEditing(false); setShowImages(false)
+      setIdx(i)
     } else {
-      // Insert card at current position + 1 so user can see it
       const newCards = [...cards.slice(0, idx + 1), card, ...cards.slice(idx + 1)]
       setCards(newCards)
-      setIdx(idx + 1); setFlipped(false); setEditing(false); setShowImages(false)
+      setIdx(idx + 1)
     }
-    setSearchResults(null)
+    setFlipped(false); setEditing(false); setShowImages(false)
+    setSearchResults(null); setSearchQuery(null)
+  }
+
+  const handleJumpBack = () => {
+    if (jumpHistory.length === 0) return
+    const prev = jumpHistory[jumpHistory.length - 1]
+    setJumpHistory(h => h.slice(0, -1))
+    setCards(prev.cards)
+    setIdx(prev.idx)
+    setFlipped(false); setEditing(false); setShowImages(false)
   }
 
   if (loading) return (
@@ -348,9 +379,9 @@ export default function App() {
           </select>
           <select className="filter-select" value={labelFilter} onChange={e => setLabelFilter(e.target.value)}>
             <option value="all">すべて</option>
-            <option value="重要">Key</option>
-            <option value="修正">Fix</option>
-            <option value="済">Done</option>
+            <option value="Focus">Focus</option>
+            <option value="Correct">Correct</option>
+            <option value="Learnt">Learnt</option>
           </select>
         </div>
       </header>
@@ -359,10 +390,10 @@ export default function App() {
         <div className="session-done">
           <h2 className="done-title">セッション完了</h2>
           <div className="summary">
-            {[['Done', summary.Done], ['Key', summary.Key], ['Fix', summary.Fix]].map(([l, c]) => (
-              <div key={l} className="summary-item">
-                <span className="summary-label">{l}</span>
-                <span className="summary-count">{c}</span>
+            {LABELS.map(({ id }) => (
+              <div key={id} className="summary-item">
+                <span className="summary-label">{id}</span>
+                <span className="summary-count">{summary[id]}</span>
               </div>
             ))}
           </div>
@@ -394,9 +425,9 @@ export default function App() {
                 <div className="type-row">
                   <div className="type-row-left">
                     <span className="type-label">{currentCard.type}</span>
-                    {currentCard.status === 'Focus' && <span className="status-badge badge-focus">Key</span>}
-                    {currentCard.status === 'Known' && <span className="status-badge badge-known">Done</span>}
-                    {currentCard.yushsei && <span className="status-badge badge-yushsei">Fix</span>}
+                    {currentCard.status === 'Focus' && <span className="status-badge badge-focus"><IconAlert /> Focus</span>}
+                    {currentCard.status === 'Known' && <span className="status-badge badge-known"><IconCheck /> Learnt</span>}
+                    {currentCard.yushsei && <span className="status-badge badge-yushsei"><IconPencil /> Correct</span>}
                   </div>
                   <button className="btn-edit" onClick={e => { e.stopPropagation(); handleEditStart() }}>編集</button>
                 </div>
@@ -417,7 +448,7 @@ export default function App() {
                       </div>
                       {images && images.length > 0 && (
                         <button className="btn-image-answer" onClick={() => setShowImages(true)}>
-                          画像 ({images.length})
+                          Image ({images.length})
                         </button>
                       )}
                     </div>
@@ -429,26 +460,25 @@ export default function App() {
 
               {flipped && (
                 <div className="label-section">
-                  {['Done', 'Key', 'Fix'].map(label => (
+                  {LABELS.map(({ id, icon }) => (
                     <button
-                      key={label}
-                      className={`btn-label${selectedLabels.has(label) ? ' selected' : ''}`}
-                      onClick={() => handleLabelToggle(label)}
+                      key={id}
+                      className={`btn-label${selectedLabels.has(id) ? ' selected' : ''}`}
+                      onClick={() => handleLabelToggle(id)}
                       disabled={updating}
                     >
-                      {label}
+                      <span className="btn-label-icon">{icon}</span>{id}
                     </button>
                   ))}
                 </div>
               )}
 
               <div className="nav-row">
-                <button className="btn-nav btn-nav-prev" onClick={handlePrev} disabled={idx === 0}>
-                  ◀ 前
-                </button>
-                <button className="btn-nav btn-nav-next" onClick={handleNext}>
-                  次 ▶
-                </button>
+                {jumpHistory.length > 0 && (
+                  <button className="btn-nav btn-nav-back" onClick={handleJumpBack}>↩ 戻る</button>
+                )}
+                <button className="btn-nav btn-nav-prev" onClick={handlePrev} disabled={idx === 0}>◀ 前</button>
+                <button className="btn-nav btn-nav-next" onClick={handleNext}>次 ▶</button>
               </div>
             </>
           )}
@@ -471,22 +501,21 @@ export default function App() {
         </main>
       )}
 
-      {/* Floating search button on text selection */}
       <SelectionSearch onSearch={handleWordSearch} />
 
-      {/* Search results modal */}
+      {/* Search results popup */}
       {searchResults !== null && (
-        <div className="image-modal-overlay" onClick={() => setSearchResults(null)}>
+        <div className="image-modal-overlay" onClick={() => { setSearchResults(null); setSearchQuery(null) }}>
           <div className="search-modal" onClick={e => e.stopPropagation()}>
             <div className="search-modal-header">
-              <span className="search-modal-word">「{searchResults.word}」</span>
-              <button className="image-modal-close" onClick={() => setSearchResults(null)}>✕</button>
+              <span className="search-modal-word">「{searchQuery}」</span>
+              <button className="image-modal-close" onClick={() => { setSearchResults(null); setSearchQuery(null) }}>✕</button>
             </div>
-            {searchResults.results.length === 0 ? (
+            {searchResults.length === 0 ? (
               <p className="search-empty">一致するカードがありません</p>
             ) : (
               <ul className="search-result-list">
-                {searchResults.results.map(card => (
+                {searchResults.map(card => (
                   <li key={card.id} className="search-result-item" onClick={() => handleSearchJump(card)}>
                     <span className="search-result-type">{card.type}</span>
                     <span className="search-result-title">{card.title}</span>
