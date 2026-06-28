@@ -59,6 +59,8 @@ export default async function handler(req, res) {
       const statusProp = page.properties?.Status
       const status = statusProp?.status?.name || 'Active'
 
+      const yushsei = page.properties?.['要修正']?.checkbox || false
+
       return {
         id: page.id,
         title,
@@ -66,6 +68,7 @@ export default async function handler(req, res) {
         type: types[0] || 'Vocabulary',
         tags,
         status,
+        yushsei,
         created_time: page.created_time,
         last_edited_time: page.last_edited_time
       }
