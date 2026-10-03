@@ -3,6 +3,7 @@ import './App.css'
 
 const TAGS = ['風力', '法務', '洋上風力', '財務', 'エネルギー', '再エネ', '制度', '時事', 'IT', 'Tech']
 const SESSION_KEY = 'kb_session_v2'
+const STUDY_LOG_KEY = 'kb_study_log'
 
 const IconCheck = () => (
   <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{display:'inline',verticalAlign:'-1px'}}>
@@ -29,6 +30,29 @@ const LABELS = [
   { id: 'Focus',  icon: <IconAlert /> },
   { id: 'Correct', icon: <IconPencil /> },
 ]
+
+// JST date string "YYYY-MM-DD"
+function jstDateStr(daysAgo = 0) {
+  const now = new Date()
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  jst.setUTCDate(jst.getUTCDate() - daysAgo)
+  return [
+    jst.getUTCFullYear(),
+    String(jst.getUTCMonth() + 1).padStart(2, '0'),
+    String(jst.getUTCDate()).padStart(2, '0')
+  ].join('-')
+}
+
+function computeStreak(log) {
+  const todayStudied = (log[jstDateStr(0)] || 0) > 0
+  let i = todayStudied ? 0 : 1
+  let streak = 0
+  for (let limit = 0; limit < 400; limit++) {
+    if ((log[jstDateStr(i)] || 0) > 0) { streak++; i++ }
+    else break
+  }
+  return streak
+}
 
 function shuffle(arr) {
   const a = [...arr]
@@ -76,6 +100,80 @@ function filtersKey(f) {
   return JSON.stringify({ ...f, tagFilters: [...(f.tagFilters || [])].sort() })
 }
 
+// ── Heatmap component ──────────────────────────────────────────
+function Heatmap({ log }) {
+  const WEEKS = 15
+  const MN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+
+  const cells = []
+  for (let i = WEEKS * 7 - 1; i >= 0; i--) {
+    const d = jstDateStr(i)
+    cells.push({ date: d, count: log[d] || 0 })
+  }
+
+  const maxCount = Math.max(...cells.map(c => c.count), 1)
+  function level(n) {
+    if (n === 0) return 0
+    if (n <= Math.floor(maxCount * 0.25)) return 1
+    if (n <= Math.floor(maxCount * 0.5))  return 2
+    if (n <= Math.floor(maxCount * 0.75)) return 3
+    return 4
+  }
+
+  // Group into weeks (Sun-first)
+  const startDow = new Date(cells[0].date + 'T00:00:00').getDay()
+  const weeks = []
+  let week = Array(startDow).fill(null)
+  for (const c of cells) {
+    week.push(c)
+    if (week.length === 7) { weeks.push(week); week = [] }
+  }
+  if (week.length) { while (week.length < 7) week.push(null); weeks.push(week) }
+
+  const monthSeen = new Set()
+
+  return (
+    <div className="heatmap-card">
+      <div className="heatmap-top">
+        <span className="heatmap-ttl">学習記録</span>
+        <div className="hm-legend">
+          <span>少</span>
+          {[0,1,2,3,4].map(l => <div key={l} className={`hm-lc lc${l}`} />)}
+          <span>多</span>
+        </div>
+      </div>
+      <div className="hm-scroll">
+        <div className="hm-grid">
+          {weeks.map((w, wi) => (
+            <div key={wi} className="hm-col">
+              {w.map((c, di) => (
+                <div
+                  key={di}
+                  className={`hm-cell${c ? '' : ' hm-empty'}`}
+                  data-l={c ? level(c.count) : 0}
+                  title={c ? `${c.date}  ${c.count}枚` : ''}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="hm-months">
+          {weeks.map((w, wi) => {
+            const first = w.find(c => c && new Date(c.date + 'T00:00:00').getDate() <= 7)
+            let label = ''
+            if (first) {
+              const m = new Date(first.date + 'T00:00:00').getMonth()
+              if (!monthSeen.has(m)) { monthSeen.add(m); label = MN[m] }
+            }
+            return <div key={wi} className="hm-mlbl">{label}</div>
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Tag dropdown ───────────────────────────────────────────────
 function TagDropdown({ selected, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -105,6 +203,7 @@ function TagDropdown({ selected, onChange }) {
   )
 }
 
+// ── Selection search ───────────────────────────────────────────
 function SelectionSearch({ onSearch }) {
   const [pos, setPos] = useState(null)
   useEffect(() => {
@@ -126,16 +225,32 @@ function SelectionSearch({ onSearch }) {
       style={{ left: pos.x, top: pos.y + window.scrollY }}
       onMouseDown={e => { e.preventDefault(); onSearch(pos.text); setPos(null) }}
       onTouchStart={e => { e.preventDefault(); onSearch(pos.text); setPos(null) }}
-    >
-      検索
-    </button>
+    >検索</button>
   )
 }
 
-// Read saved session once at module level (before first render)
+// ── Read saved session/filters once ───────────────────────────
 const _initSaved = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') } catch { return null } })()
 
+// ══════════════════════════════════════════════════════════════
 export default function App() {
+  const [view, setView] = useState('home') // 'home' | 'study'
+
+  // Study log
+  const [studyLog, setStudyLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STUDY_LOG_KEY) || '{}') } catch { return {} }
+  })
+
+  const incrementStudy = useCallback(() => {
+    const today = jstDateStr(0)
+    setStudyLog(prev => {
+      const next = { ...prev, [today]: (prev[today] || 0) + 1 }
+      try { localStorage.setItem(STUDY_LOG_KEY, JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [])
+
+  // Cards / filters
   const [allCards, setAllCards] = useState([])
   const [cards, setCards] = useState([])
   const [idx, setIdx] = useState(0)
@@ -163,10 +278,8 @@ export default function App() {
   const [images, setImages] = useState(null)
   const [showImages, setShowImages] = useState(false)
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState(null)   // word being searched
-  const [searchResults, setSearchResults] = useState(null) // results array or null
-  // Jump history: [{cards, idx}]
+  const [searchQuery, setSearchQuery] = useState(null)
+  const [searchResults, setSearchResults] = useState(null)
   const [jumpHistory, setJumpHistory] = useState([])
 
   const allCardsRef = useRef([])
@@ -209,7 +322,6 @@ export default function App() {
     setIdx(0); setFlipped(false); setSessionDone(false)
     setSummary({ Learnt: 0, Focus: 0, Correct: 0 }); setEditing(false); setShowImages(false)
     setJumpHistory([])
-    // Persist new filter state immediately (idx=0, new deck)
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify({ cardIds: newCards.map(x => x.id), idx: 0, filters }))
     } catch {}
@@ -268,6 +380,7 @@ export default function App() {
   }
 
   const handleNext = () => {
+    incrementStudy()
     if (idx + 1 >= cards.length) { setSessionDone(true); localStorage.removeItem(SESSION_KEY); return }
     const next = idx + 1
     setIdx(next); setFlipped(false); setEditing(false); setShowImages(false)
@@ -313,28 +426,34 @@ export default function App() {
     setJumpHistory([])
   }
 
-  // Word search
+  const handleStartStudy = () => {
+    setView('study')
+    setSessionDone(false)
+    setFlipped(false)
+    setEditing(false)
+  }
+
+  const handleGoHome = () => {
+    setView('home')
+    setSessionDone(false)
+  }
+
   const handleWordSearch = useCallback(word => {
     const q = word.toLowerCase()
     const results = allCardsRef.current.filter(c =>
       c.title.toLowerCase().includes(q) || c.answer.toLowerCase().includes(q)
     )
-    setSearchQuery(word)
-    setSearchResults(results)
+    setSearchQuery(word); setSearchResults(results)
     window.getSelection()?.removeAllRanges()
   }, [])
 
   const handleSearchJump = card => {
-    // Save current position to jump history
     setJumpHistory(h => [...h, { cards, idx }])
-    // Find card in current deck
     const i = cards.findIndex(c => c.id === card.id)
-    if (i !== -1) {
-      setIdx(i)
-    } else {
+    if (i !== -1) { setIdx(i) }
+    else {
       const newCards = [...cards.slice(0, idx + 1), card, ...cards.slice(idx + 1)]
-      setCards(newCards)
-      setIdx(idx + 1)
+      setCards(newCards); setIdx(idx + 1)
     }
     setFlipped(false); setEditing(false); setShowImages(false)
     setSearchResults(null); setSearchQuery(null)
@@ -344,11 +463,41 @@ export default function App() {
     if (jumpHistory.length === 0) return
     const prev = jumpHistory[jumpHistory.length - 1]
     setJumpHistory(h => h.slice(0, -1))
-    setCards(prev.cards)
-    setIdx(prev.idx)
+    setCards(prev.cards); setIdx(prev.idx)
     setFlipped(false); setEditing(false); setShowImages(false)
   }
 
+  // ── Filters bar (shared between home & study header) ────────
+  const FiltersBar = () => (
+    <div className="filters">
+      <select className="filter-select" value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
+        <option value="today">今日</option>
+        <option value="yesterday">昨日</option>
+        <option value="week">今週</option>
+        <option value="month">今月</option>
+        <option value="all">全期間</option>
+      </select>
+      <TagDropdown selected={tagFilters} onChange={setTagFilters} />
+      <select className="filter-select" value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+        <option value="updated">更新日順</option>
+        <option value="created">作成日順</option>
+        <option value="random">ランダム</option>
+      </select>
+      <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+        <option value="All">All Types</option>
+        <option value="Vocabulary">Vocabulary</option>
+        <option value="Question">Question</option>
+      </select>
+      <select className="filter-select" value={labelFilter} onChange={e => setLabelFilter(e.target.value)}>
+        <option value="all">すべて</option>
+        <option value="Focus">Focus</option>
+        <option value="Correct">Correct</option>
+        <option value="Learnt">Learnt</option>
+      </select>
+    </div>
+  )
+
+  // ── Loading / Error ─────────────────────────────────────────
   if (loading) return (
     <div className="app"><div className="loading"><div className="spinner" /><p>Notionからカードを読み込み中…</p></div></div>
   )
@@ -356,40 +505,64 @@ export default function App() {
     <div className="app"><div className="error-box"><p>エラーが発生しました</p><p className="error-msg">{error}</p></div></div>
   )
 
+  // ══════════ HOME SCREEN ════════════════════════════════════
+  if (view === 'home') {
+    const streak = computeStreak(studyLog)
+    const todayCount = studyLog[jstDateStr(0)] || 0
+    return (
+      <div className="app">
+        <header className="header">
+          <div className="header-top">
+            <h1 className="app-title">Knowledge Base</h1>
+          </div>
+          <FiltersBar />
+        </header>
+
+        {/* Stats */}
+        <div className="stats-section">
+          <div className="stat-tiles">
+            <div className="stat-tile">
+              <span className="stat-icon">🔥</span>
+              <div className="stat-body">
+                <div className="stat-num">{streak}<span className="stat-unit">日</span></div>
+                <div className="stat-lbl">連続学習</div>
+              </div>
+            </div>
+            <div className="stat-tile">
+              <span className="stat-icon">📖</span>
+              <div className="stat-body">
+                <div className="stat-num">{todayCount}<span className="stat-unit">枚</span></div>
+                <div className="stat-lbl">今日の学習</div>
+              </div>
+            </div>
+          </div>
+          <Heatmap log={studyLog} />
+        </div>
+
+        {/* Start button */}
+        {cards.length > 0 ? (
+          <button className="btn-start" onClick={handleStartStudy}>
+            学習スタート（{cards.length}枚）
+          </button>
+        ) : (
+          <div className="empty"><p>該当するカードがありません</p></div>
+        )}
+      </div>
+    )
+  }
+
+  // ══════════ STUDY SCREEN ═══════════════════════════════════
   return (
     <div className="app">
       <header className="header">
         <div className="header-top">
           <h1 className="app-title">Knowledge Base</h1>
-          {cards.length > 0 && !sessionDone && (
-            <span className="progress-count">{idx + 1} / {cards.length}</span>
-          )}
-        </div>
-        <div className="filters">
-          <select className="filter-select" value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
-            <option value="today">今日</option>
-            <option value="yesterday">昨日</option>
-            <option value="week">今週</option>
-            <option value="month">今月</option>
-            <option value="all">全期間</option>
-          </select>
-          <TagDropdown selected={tagFilters} onChange={setTagFilters} />
-          <select className="filter-select" value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
-            <option value="updated">更新日順</option>
-            <option value="created">作成日順</option>
-            <option value="random">ランダム</option>
-          </select>
-          <select className="filter-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-            <option value="All">All Types</option>
-            <option value="Vocabulary">Vocabulary</option>
-            <option value="Question">Question</option>
-          </select>
-          <select className="filter-select" value={labelFilter} onChange={e => setLabelFilter(e.target.value)}>
-            <option value="all">すべて</option>
-            <option value="Focus">Focus</option>
-            <option value="Correct">Correct</option>
-            <option value="Learnt">Learnt</option>
-          </select>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {cards.length > 0 && !sessionDone && (
+              <span className="progress-count">{idx + 1} / {cards.length}</span>
+            )}
+            <button className="btn-home" onClick={handleGoHome}>ホーム</button>
+          </div>
         </div>
       </header>
 
@@ -404,10 +577,11 @@ export default function App() {
               </div>
             ))}
           </div>
-          <button className="btn-restart" onClick={handleRestart}>もう一度やる</button>
+          <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+            <button className="btn-restart" onClick={handleRestart}>もう一度やる</button>
+            <button className="btn-restart btn-restart-home" onClick={handleGoHome}>ホームへ</button>
+          </div>
         </div>
-      ) : cards.length === 0 ? (
-        <div className="empty"><p>該当するカードがありません</p></div>
       ) : (
         <main className="main">
           {editing ? (
@@ -510,7 +684,6 @@ export default function App() {
 
       <SelectionSearch onSearch={handleWordSearch} />
 
-      {/* Search results popup */}
       {searchResults !== null && (
         <div className="image-modal-overlay" onClick={() => { setSearchResults(null); setSearchQuery(null) }}>
           <div className="search-modal" onClick={e => e.stopPropagation()}>
