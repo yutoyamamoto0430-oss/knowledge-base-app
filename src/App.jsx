@@ -132,6 +132,9 @@ function SelectionSearch({ onSearch }) {
   )
 }
 
+// Read saved session once at module level (before first render)
+const _initSaved = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') } catch { return null } })()
+
 export default function App() {
   const [allCards, setAllCards] = useState([])
   const [cards, setCards] = useState([])
@@ -140,11 +143,11 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [typeFilter, setTypeFilter] = useState('All')
-  const [tagFilters, setTagFilters] = useState([])
-  const [dateFilter, setDateFilter] = useState('today')
-  const [sortOrder, setSortOrder] = useState('updated')
-  const [labelFilter, setLabelFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState(_initSaved?.filters?.typeFilter ?? 'All')
+  const [tagFilters, setTagFilters] = useState(_initSaved?.filters?.tagFilters ?? [])
+  const [dateFilter, setDateFilter] = useState(_initSaved?.filters?.dateFilter ?? 'today')
+  const [sortOrder, setSortOrder] = useState(_initSaved?.filters?.sortOrder ?? 'updated')
+  const [labelFilter, setLabelFilter] = useState(_initSaved?.filters?.labelFilter ?? 'all')
 
   const [sessionDone, setSessionDone] = useState(false)
   const [summary, setSummary] = useState({ Learnt: 0, Focus: 0, Correct: 0 })
@@ -201,11 +204,15 @@ export default function App() {
     if (isFirstFilterRender.current) { isFirstFilterRender.current = false; return }
     if (allCardsRef.current.length === 0) return
     const filters = { typeFilter, tagFilters, dateFilter, sortOrder, labelFilter }
-    localStorage.removeItem(SESSION_KEY)
-    setCards(sortCards(filterCards(allCardsRef.current, filters), sortOrder))
+    const newCards = sortCards(filterCards(allCardsRef.current, filters), sortOrder)
+    setCards(newCards)
     setIdx(0); setFlipped(false); setSessionDone(false)
     setSummary({ Learnt: 0, Focus: 0, Correct: 0 }); setEditing(false); setShowImages(false)
     setJumpHistory([])
+    // Persist new filter state immediately (idx=0, new deck)
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ cardIds: newCards.map(x => x.id), idx: 0, filters }))
+    } catch {}
   }, [typeFilter, tagFilters, dateFilter, sortOrder, labelFilter])
 
   const saveSession = useCallback((c, i) => {
